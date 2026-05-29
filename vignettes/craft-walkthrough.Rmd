@@ -1,0 +1,343 @@
+---
+title: "A C-R-A-F-T Walkthrough"
+author: "Yuehong Cassandra Tai, Hyein Ko"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{A C-R-A-F-T Walkthrough}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>",
+  fig.width  = 7,
+  fig.height = 4.5
+)
+library(craft)
+```
+
+> **Demo data, not real data.** The datasets used in this vignette
+> are **synthetic but structurally based on the climate-stance
+> demonstration used in the CRAFT paper** (Ko, Tai & Webb Williams).
+> The CRAFT framework itself is general; climate stance is just one
+> illustration. Class balance, error rates, and ideology
+> distributions mimic the demonstration data, but no row corresponds
+> to any actual legislator post. The five rationale-audit examples
+> in the F step are lifted verbatim from the paper's Table
+> `tab:example`. The real demonstration dataset will replace this
+> demo when the paper is published.
+
+This vignette walks through the five C-R-A-F-T steps. Labels are
+binary (`support` / `opposing`); uncertainty is captured through
+per-LLM confidence scores (R, A, F steps) and via the implicit
+`1 - sup - opp` residual at the legislator level (T step), not as a
+third label class.
+
+## C — Construct role and task
+
+```{r construct}
+rt <- role(
+  conception  = "annotator",
+  task        = "classify climate stance of state legislators on X",
+  gold        = TRUE,
+  prompt_type = "zero-shot"
+)
+rt
+```
+
+The printed suggestions tell you which families of reliability and
+validity metrics apply for this role-task combination.
+
+## R — Report dual-track metrics
+
+`reliab()` dispatches one of six inter-rater reliability metrics
+(Cohen's kappa, weighted kappa, Fleiss' kappa, Krippendorff's alpha,
+ICC, or percent agreement). `valid()` computes validity (precision,
+recall, F1, MCC, etc.) against a gold standard. `dual()` bundles
+both into one call.
+
+```{r dual-track}
+demo <- read.csv(
+  system.file("extdata", "craft_demo.csv", package = "craft")
+)
+head(demo[, c("id", "gold_standard", "gpt5_label",
+              "gemini3_label", "llama3_label")])
+
+dt <- dual(
+  ratings = demo[, c("gold_standard", "gpt5_label",
+                     "gemini3_label", "llama3_label")],
+  gold = demo$gold_standard,
+  pred = list(                       # named list -> one row per
+    "GPT-5"     = demo$gpt5_label,   # annotator in the validity table
+    "Gemini-3"  = demo$gemini3_label,
+    "Llama-3.3" = demo$llama3_label
+  ),
+  reliability_method = "kripp",      # >2 raters, nominal labels
+  reliability_level  = "nominal",
+  validity_metrics = c("f1_macro", "f1_weighted", "mcc",
+                       "balanced_accuracy")
+)
+dt$reliability
+dt$validity
+```
+
+`dual()` accepts either a single `pred` vector or a named list of
+predictors. The list form (above) gives one row per annotator in the
+validity table — useful when comparing several LLMs against the same
+gold standard. The single-vector form is shown below:
+
+```{r dual-single, eval=FALSE}
+dual(ratings   = demo[, c("gold_standard", "gpt5_label")],
+     gold      = demo$gold_standard,
+     pred      = demo$gpt5_label,
+     pred_name = "GPT-5",                # cleaner label in report()
+     reliability_method = "cohen")
+```
+
+For pairwise Cohen's kappa across every annotator pair (the data
+behind a kappa heatmap):
+
+```{r pairwise}
+reliab_pairs(
+  demo[, c("gold_standard", "gpt5_label",
+           "gemini3_label", "llama3_label")],
+  method = "cohen",
+  order  = c("gold_standard", "gpt5_label",
+             "gemini3_label", "llama3_label")
+)
+```
+
+## A — Assess stability
+
+`stab()` computes reliability + validity for each model or prompt
+variant separately, producing a tidy one-row-per-variant table:
+
+```{r stability}
+stab(
+  predictions = list(
+    "GPT-5"     = demo$gpt5_label,
+    "Gemini-3"  = demo$gemini3_label,
+    "Llama-3.3" = demo$llama3_label
+  ),
+  gold = demo$gold_standard,
+  reliability_method = "cohen",
+  validity_metrics   = c("f1_macro", "f1_weighted", "mcc",
+                         "balanced_accuracy")
+)
+```
+
+## F — Field audit and adjudication
+
+`audit()` surfaces the rows that need human review by combining each
+LLM's label with its confidence:
+
+```{r audit}
+# Pass text + rationales through so report() can quote them later
+ann <- data.frame(
+  id                = demo$id,
+  text              = demo$text,
+  label_a           = demo$gpt5_label,
+  label_b           = demo$gemini3_label,
+  confidence_a      = demo$confidence_gpt5,
+  confidence_b      = demo$confidence_gemini3,
+  rationale_gpt5    = demo$rationale_gpt5,
+  rationale_gemini3 = demo$rationale_gemini3,
+  stringsAsFactors  = FALSE
+)
+
+a <- audit(ann, confidence_threshold = 0.55, low_threshold = 0.31)
+table(a$audit_status)
+```
+
+The five rows lifted from the paper's Table `tab:example` carry the
+rationale text directly, so you can inspect why each annotator chose
+a given label:
+
+```{r rationale-audit}
+paper_rows <- demo[demo$source == "main.tex Table tab:example",
+                   c("id", "text", "llama3_label",
+                     "rationale_gpt5", "rationale_llama3")]
+paper_rows
+```
+
+Notice the Manchin/Reich row (`paper_ex_05`): GPT-5 and Gemini-3
+labelled it `support` with a context-aware rationale; Llama-3.3
+labelled it `opposing` after fixating on the surface phrases
+`coal stocks` and `blocks efforts`. That is a real audit catch.
+
+`tau_sens()` shows how the audit categorization shifts as the
+confidence threshold moves:
+
+```{r tau-sens}
+tau_sens(ann, thresholds = c(0.5, 0.55, 0.6, 0.7))
+```
+
+## T — Translate to inference
+
+The legislator-level dataset ships with the columns the DSL analysis
+needs: `state`, outcomes (`sup`, `opp`), LLM predictions (`pred_sup`,
+`pred_opp`), covariates, and the inclusion probability
+(`cand_incl_prob_all`).
+
+```{r load-legis}
+load(system.file("extdata", "data.rda", package = "craft"))
+str(data)
+cat("Uncertainty residual: mean ",
+    round(mean(1 - data$pred_sup - data$pred_opp), 3),
+    ", median ",
+    round(median(1 - data$pred_sup - data$pred_opp), 3),
+    "\n", sep = "")
+```
+
+The implicit `1 - sup - opp` residual is small (mean ~4%), which
+matches the climate-stance demonstration where most legislators have
+clearly classifiable climate posts. **Practical consequence:** when
+uncertainty is small, `dsl_cmp(sup ~ ...)` and `dsl_cmp(opp ~ ...)`
+produce near-mirror-image coefficient estimates. When uncertainty is
+more substantial, the two outcomes can have genuinely independent
+driver patterns.
+
+```{r translate-sup, eval=requireNamespace("dsl", quietly = TRUE)}
+dsl_results <- dsl_cmp(
+  data    = data,
+  formula = sup ~ shor_ideo + per_mining + female + senate + perc_bchhigherE,
+  predicted_var = "sup",
+  prediction    = "pred_sup",
+  sample_prob   = "cand_incl_prob_all",
+  fixed_effect  = "oneway",
+  index   = "state",
+  cluster = "state"
+)
+dsl_results
+```
+
+The opposing-stance model is the symmetric specification:
+
+```{r translate-opp, eval=requireNamespace("dsl", quietly = TRUE)}
+dsl_cmp(
+  data    = data,
+  formula = opp ~ shor_ideo + per_mining + female + senate + perc_bchhigherE,
+  predicted_var = "opp",
+  prediction    = "pred_opp",
+  sample_prob   = "cand_incl_prob_all",
+  fixed_effect  = "oneway",
+  index   = "state",
+  cluster = "state"
+)
+```
+
+## Emit a reproducibility report
+
+`report()` writes a prose, methods-supplement-style document
+capturing the LLM, version, prompt, threshold decisions, metrics,
+audit examples, and DSL results. Output goes to whatever path you
+pass; relative paths resolve against your current working directory.
+The shipped `prompt_dev4.txt` is the actual dev4 codebook used in
+the climate-stance demonstration of the CRAFT paper.
+
+> **Long prompts.** In HTML output the prompt is rendered inside a
+> collapsible `<details>` block — readers click to expand. In PDF
+> output (where there is no toggle) the prompt is rendered as a
+> wrapped verbatim block so the codebook is fully visible for
+> transparency.
+
+### Default: HTML in your working directory
+
+```{r report-html, eval=FALSE}
+report(
+  role_task   = rt,
+  llm         = "GPT-5",
+  version     = "gpt-5-2025-09-15",
+  prompt_path = system.file("extdata", "prompt_dev4.txt", package = "craft"),
+  metrics     = dt,
+  audit       = a,
+  dsl         = dsl_results,
+  thresholds  = list(confidence = 0.55, low = 0.31),
+  output      = "craft_report.html"      # writes to getwd()
+)
+```
+
+### PDF for paper supplement (requires LaTeX)
+
+```{r report-pdf, eval=FALSE}
+report(
+  role_task   = rt,
+  llm         = "GPT-5",
+  version     = "gpt-5-2025-09-15",
+  prompt_path = system.file("extdata", "prompt_dev4.txt", package = "craft"),
+  metrics     = dt,
+  audit       = a,
+  dsl         = dsl_results,
+  thresholds  = list(confidence = 0.55, low = 0.31),
+  output      = "craft_report.pdf"
+)
+# First time only:
+# tinytex::install_tinytex()
+```
+
+### Both formats side-by-side
+
+```{r report-both, eval=FALSE}
+report(
+  role_task   = rt,
+  llm         = "GPT-5",
+  version     = "gpt-5-2025-09-15",
+  prompt_path = system.file("extdata", "prompt_dev4.txt", package = "craft"),
+  metrics     = dt,
+  audit       = a,
+  dsl         = dsl_results,
+  thresholds  = list(confidence = 0.55, low = 0.31),
+  output      = "craft_report",          # no extension
+  format      = "both"                   # writes .html AND .pdf
+)
+```
+
+### Customizing the DSL table for non-climate studies
+
+The report's DSL table groups predictors as **Individual level** and
+**District level** by default, with labels tuned to the
+climate-stance demonstration. For other studies, attach
+`term_labels` and `term_groups` attributes to the data frame
+returned by `dsl_cmp()` before passing it to `report()`:
+
+```{r dsl-customize, eval=FALSE}
+my_dsl <- dsl_cmp(
+  data    = my_data,
+  formula = outcome ~ treatment + age + income + urban,
+  predicted_var = "outcome",
+  prediction    = "pred_outcome",
+  sample_prob   = "incl_prob",
+  fixed_effect  = "oneway",
+  index   = "region",
+  cluster = "region"
+)
+
+attr(my_dsl, "term_labels") <- c(
+  treatment = "Treatment",
+  age       = "Age",
+  income    = "Household income",
+  urban     = "Urban residence"
+)
+attr(my_dsl, "term_groups") <- list(
+  "Primary"  = c("treatment"),
+  "Controls" = c("age", "income", "urban")
+)
+
+report(..., dsl = my_dsl)
+```
+
+The rendered report contains prose narration of all CRAFT steps,
+the prompt (toggle in HTML, expanded in PDF), a table of dual-track
+metrics with one validity row per annotator, the stability table,
+1-2 illustrative audit cases drawn from rows in your `audit` data
+frame that carry `text` and `rationale_*` columns, and the
+grouped Original-vs-DSL coefficient table.
+
+## Where to go next
+
+- `vignette("getting-started")` — five-minute introduction.
+- `?reliab` — list of reliability methods and when to use each.
+- `?report` — full argument reference for the reproducibility
+  report generator.

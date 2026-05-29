@@ -1,0 +1,76 @@
+Task: Label stance toward climate policy/science in posts by elected officials.
+Goal (construct):
+Measure the stance the official signals in the text itself (expressed stance), not stance inferred from external facts (e.g., bill numbers, vote histories, or what a policy “is” outside the post).
+
+Output:
+Return only the JSON object described by the schema. No prose outside JSON.
+Fields:
+- label: "support" or "opposing"
+- confidence: float in [0.0, 1.0]
+- tier: "strict" | "proxy" | "none"
+- evidence: 1–2 short verbatim quotes copied from the post (≤12 words each).
+- rationale: exactly ONE sentence (≤120 chars) that (a) names the cue(s) supporting the tier (strict/proxy/none) and (b) states why the post is support or opposing.
+
+Downstream rule:
+If tier == "none": treat as not climate-signaling (exclude)
+If confidence < 0.55, the observation will be treated as "uncertainty" (third category) and flagged for stance analysis.
+
+Text-immanent constraint (no latent-knowledge enrichment):
+- Use ONLY information present in the post.
+- Do NOT use outside knowledge to interpret identifiers (bill numbers like “H.R. 5376”, rule IDs, acronyms) unless the post itself contains climate/science/policy proxy cues that make the climate connection explicit in-text.
+- Do NOT “look up” or rely on what you know a bill is. If the post is only an identifier or vote instruction without climate cues, treat it as not climate-signaling (very low confidence).
+
+Tier=strict (climate/policy cues in-text):
+Use Tier=strict if the post contains explicit climate science cues OR explicit climate-policy cues, such as:
+- climate change / global warming / greenhouse gases / CO2 / carbon emissions / methane
+- IPCC, climate scientists, "hoax/alarmism" claims about climate science
+- net zero, decarbonization, carbon tax/pricing, cap-and-trade, Paris Agreement
+- emissions standards/rules, EPA emissions rule, methane rule, tailpipe/emissions regulation
+- Green New Deal, climate agenda, "war on fossil fuels"/"radical green agenda" when clearly about climate policy
+
+Tier=proxy (broader proxy-frame climate stance, common in U.S. politics; may omit the word "climate"):
+Use Tier=proxy if the post lacks Tier=strict cues but plausibly signals stance toward climate-mitigation policy via proxy frames involving fossil energy, jobs, and regulation, such as:
+- promoting fossil expansion/deregulation (drill/coal/oil & gas/pipelines) framed as opposing regulation/mandates
+- attacking "regulations/mandates/EPA overreach/red tape" in an energy/fossil policy context
+- "energy jobs"/"coal jobs"/"war on energy" used as a policy argument against regulations/mandates/green agenda
+Guardrail: generic gas-price/inflation talk with no policy target/blame frame is usually NOT Tier=proxy.
+
+Tier=none (not climate-signaling for this task):
+Use Tier=none if there are no Tier=strict cues and no credible proxy-frame policy-conflict framing (e.g., generic energy/economy talk, non-policy content, or bare procedural text).
+
+Label definitions (stance) (apply within Tier=strict or Tier=proxy; if Tier=none, still choose a label but set low confidence):
+
+Support:
+- endorses climate science and/or accepts anthropogenic warming; OR
+- supports climate mitigation/adaptation policy framed as climate action (reduce emissions, decarbonize, climate resilience/adaptation tied to climate); OR
+- criticizes obstruction/rollback/denial of climate policy/science.
+
+Opposing:
+- denies/undermines climate science (hoax/alarmism/not human-caused/mocks scientists); OR
+- opposes/rolls back climate mitigation/adaptation policy (attacks climate agenda, net zero, Green New Deal, emissions rules); OR
+- promotes fossil expansion/deregulation framed against climate action/policy.
+
+Implicit stance is allowed:
+Stance may be inferred from political cues/frames present in the text (e.g., blame attribution to “climate agenda,” attacks on emissions rules, praise for emissions cuts), but the inference must be justified by quoted evidence spans. If cues are weak/subtle/mixed, lower confidence (<0.55).
+
+Edge-case rules (to avoid over-inclusion of generic energy talk):
+1) Energy/gas prices, energy independence, pipelines, drilling, gas/fuel taxes:
+   - Treat as climate-relevant ONLY if accompanied by at least one climate science cue or climate-policy proxy cue above.
+   - If discussed purely as inflation/geopolitics/jobs/taxation without climate-policy cues, treat as not climate-signaling: confidence <= 0.30.
+
+2) Weather/disasters (storms, floods, heat, wildfire):
+   - Not climate-relevant unless the post attributes them to climate change or discusses climate adaptation/resilience as a climate response.
+
+3) Legislative references / bill numbers:
+   - If the post is only “Vote yes/no on [bill number]” with no climate cues, treat as not climate-signaling: confidence <= 0.30.
+   - If the post includes climate-policy proxy cues (e.g., “clean energy tax credits,” “emissions,” “net zero,” “climate”), then code stance normally.
+
+Sarcasm/irony:
+Do NOT assume sarcasm implies opposition. Classify based on what is being undermined or endorsed.
+
+Confidence guidance (confidence reflects stance clarity GIVEN tier; tier is NOT encoded solely by confidence):
+- 0.91–1.00: tier is clear AND stance direction is explicit/unambiguous in-text
+- 0.70–0.90: tier is clear AND stance is strongly implied by clear frames/keywords
+- 0.55–0.69: tier is clear but stance is subtle/implicit (keep for stance analysis)
+- 0.31–0.54: Tier=strict or Tier=proxy but stance is mixed/unclear/weakly supported (route to uncertainty downstream)
+- 0.00–0.30: Tier=none (not climate-signaling). IMPORTANT: if Tier=none, set confidence in [0.05, 0.30].

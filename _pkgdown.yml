@@ -1,0 +1,80 @@
+url: https://casstai.github.io/craft-r/
+
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+  bslib:
+    primary: "#0072B2"
+    base_font: {google: "Inter"}
+    heading_font: {google: "Inter"}
+    code_font: {google: "JetBrains Mono"}
+
+navbar:
+  structure:
+    left:  [intro, articles, reference, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get Started
+      href: articles/getting-started.html
+    articles:
+      text: Articles
+      menu:
+      - text: "Getting Started (5-min tutorial)"
+        href: articles/getting-started.html
+      - text: "Full Walkthrough: Climate-Stance"
+        href: articles/craft-walkthrough.html
+
+home:
+  title: craft - A CRAFT pipeline for evaluating LLM-generated data
+  description: >
+    R package implementing the five-step C-R-A-F-T framework
+    (Construct, Report, Assess, Field-audit, Translate) for
+    evaluating LLM-generated data in political and social science
+    research.
+  links:
+  - text: CRAFT framework paper
+    href: https://cassyuehtai.netlify.app/
+  - text: Authors' websites
+    href: https://cassyuehtai.netlify.app/
+
+reference:
+- title: "C - Construct role-task"
+  desc: "Document how the LLM is being used and which metric family applies."
+  contents:
+  - role
+
+- title: "R - Report dual-track metrics"
+  desc: "Reliability (six methods) paired with validity (six metrics)."
+  contents:
+  - reliab
+  - reliab_pairs
+  - valid
+  - dual
+
+- title: "A - Assess stability"
+  desc: "Cross-prompt and cross-model comparison."
+  contents:
+  - stab
+
+- title: "F - Field audit"
+  desc: "Surface disagreements and low-confidence agreements; threshold sensitivity."
+  contents:
+  - audit
+  - disagree
+  - tau_sens
+
+- title: "T - Translate to inference"
+  desc: "Design-based corrected regression so misclassification uncertainty propagates."
+  contents:
+  - dsl_fit
+  - dsl_cmp
+
+- title: "Reproducibility report"
+  contents:
+  - report
+
+footer:
+  structure:
+    left: developed_by
+    right: built_with

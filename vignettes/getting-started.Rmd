@@ -1,0 +1,181 @@
+---
+title: "Getting Started with craft (5-minute tutorial)"
+author: "Yuehong Cassandra Tai, Hyein Ko"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with craft (5-minute tutorial)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(craft)
+```
+
+> **Demo data, not real data.** The `craft_demo.csv` file used below
+> is **synthetic but structurally based on the climate-stance
+> demonstration used in the CRAFT paper** (Ko, Tai & Webb Williams).
+> Climate stance is used to illustrate the framework — CRAFT itself is
+> domain-general. Five of the rows carry text and rationales lifted
+> verbatim from the paper's Table `tab:example`; the rest are
+> synthetic label sequences with realistic error rates. No row
+> corresponds to any unpublished real annotation.
+
+This tutorial gets you from zero to a complete CRAFT evaluation in
+about five minutes. For the deeper end-to-end example (including DSL
+correction), see `vignette("craft-walkthrough")`.
+
+## What you need
+
+A data frame with one column per rater (annotator or LLM), a
+gold-standard column, and optionally per-rater confidence scores.
+
+```{r demo-data}
+demo <- read.csv(
+  system.file("extdata", "craft_demo.csv", package = "craft")
+)
+head(demo)
+```
+
+Columns: `id`, `gold_standard`, `gpt5_label`, `gemini3_label`,
+`llama3_label`, plus a `confidence_*` column per LLM. Labels are
+binary (`support` / `opposing`); uncertainty is captured through
+per-LLM confidence scores (R, A, F steps) and via the implicit
+`1 - sup - opp` residual at the legislator level (T step), not as a
+third label class.
+
+## Step 1 (C): Document the role
+
+```{r role}
+rt <- role(conception  = "annotator",
+           task        = "classify climate stance",
+           gold        = TRUE,
+           prompt_type = "zero-shot")
+rt
+```
+
+## Step 2 (R): Compute reliability + validity
+
+Pick the reliability metric that fits your data. For four categorical
+raters (one human + three LLMs), Krippendorff's alpha is appropriate:
+
+```{r reliab}
+reliab(demo[, c("gold_standard", "gpt5_label",
+                "gemini3_label", "llama3_label")],
+       method = "kripp", level = "nominal")
+```
+
+Pairwise Cohen's kappa - every rater pair separately:
+
+```{r reliab-pairs}
+reliab_pairs(demo[, c("gold_standard", "gpt5_label",
+                      "gemini3_label", "llama3_label")],
+             method = "cohen")
+```
+
+Validity vs. gold (you pick the metrics you care about):
+
+```{r valid}
+valid(gold = demo$gold_standard,
+      pred = demo$gpt5_label,
+      metrics = c("f1_macro", "f1_weighted", "mcc", "accuracy"))
+```
+
+Both in one call:
+
+```{r dual}
+# Single annotator vs. gold
+dual(
+  ratings   = demo[, c("gold_standard", "gpt5_label")],
+  gold      = demo$gold_standard,
+  pred      = demo$gpt5_label,
+  pred_name = "GPT-5",
+  reliability_method = "cohen",
+  validity_metrics   = c("f1_macro", "f1_weighted", "mcc")
+)
+```
+
+To get validity for **all three annotators in one call**, pass a
+named list of prediction vectors:
+
+```{r dual-multi}
+dual(
+  ratings = demo[, c("gold_standard", "gpt5_label",
+                     "gemini3_label", "llama3_label")],
+  gold = demo$gold_standard,
+  pred = list(
+    "GPT-5"     = demo$gpt5_label,
+    "Gemini-3"  = demo$gemini3_label,
+    "Llama-3.3" = demo$llama3_label
+  ),
+  reliability_method = "kripp",
+  validity_metrics   = c("f1_macro", "f1_weighted", "mcc")
+)
+```
+
+## Step 3 (A): Compare across models
+
+```{r stab}
+stab(
+  predictions = list(
+    "GPT-5"     = demo$gpt5_label,
+    "Gemini-3"  = demo$gemini3_label,
+    "Llama-3.3" = demo$llama3_label
+  ),
+  gold = demo$gold_standard
+)
+```
+
+## Step 4 (F): Audit
+
+```{r audit}
+ann <- data.frame(
+  id           = demo$id,
+  label_a      = demo$gpt5_label,
+  label_b      = demo$gemini3_label,
+  confidence_a = demo$confidence_gpt5,
+  confidence_b = demo$confidence_gemini3
+)
+a <- audit(ann, confidence_threshold = 0.55, low_threshold = 0.31)
+table(a$audit_status)
+```
+
+## Step 5 (T): DSL correction
+
+`dsl_fit()` and `dsl_cmp()` propagate misclassification uncertainty
+into a downstream regression. See `vignette("craft-walkthrough")` for
+the full T-step example.
+
+## Emit a reproducibility report
+
+The report is written in prose and can render to HTML or PDF. The
+output file lands in your current working directory by default, or
+at any path you specify. The PDF output requires LaTeX (one-time
+`tinytex::install_tinytex()`).
+
+```{r report, eval=FALSE}
+report(
+  role_task   = rt,
+  llm         = "GPT-5",
+  version     = "gpt-5-2025-09-15",
+  prompt_path = system.file("extdata", "prompt_dev4.txt", package = "craft"),
+  metrics     = dual(
+    ratings = demo[, c("gold_standard", "gpt5_label")],
+    gold    = demo$gold_standard,
+    pred    = demo$gpt5_label,
+    reliability_method = "cohen"
+  ),
+  thresholds  = list(confidence = 0.55, low = 0.31),
+  output      = "craft_report.html"      # writes to getwd()
+)
+
+# Or generate both an HTML preview AND a PDF for a paper supplement:
+report(..., output = "craft_report", format = "both")
+```
+
+## Where to go next
+
+- `vignette("craft-walkthrough")` — the deeper example with DSL.
+- `?reliab` — full list of reliability methods and when to use each.
+- `?report` — argument reference for the reproducibility report.

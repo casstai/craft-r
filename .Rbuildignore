@@ -1,0 +1,16 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^\.git$
+^\.gitignore$
+^LICENSE\.md$
+^README\.Rmd$
+^docs$
+^_pkgdown\.yml$
+^pkgdown$
+^HOW_TO_TEST\.md$
+^PUSH_TO_GITHUB\.md$
+^\.positai$
+^\.claude$
+^doc$
+^Meta$

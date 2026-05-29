@@ -1,0 +1,19 @@
+.Rproj.user
+.Rhistory
+.Rdata
+.httr-oauth
+.DS_Store
+docs/
+*.Rcheck/
+*.tar.gz
+inst/doc/
+/doc/
+/Meta/
+
+# Test renders from running report() interactively — these belong in the
+# user's working directory, not in the package source.
+craft_report.html
+craft_report.pdf
+craft_report.md
+craft_report.tex
+craft_report.log

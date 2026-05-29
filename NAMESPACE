@@ -1,0 +1,19 @@
+# Hand-curated for v0 (regenerate with roxygen2 later)
+
+export(role)
+export(reliab)
+export(reliab_pairs)
+export(valid)
+export(dual)
+export(stab)
+export(audit)
+export(disagree)
+export(tau_sens)
+export(dsl_fit)
+export(dsl_cmp)
+export(report)
+
+S3method(print, craft_role)
+
+importFrom(stats, as.formula)
+importFrom(utils, combn)
