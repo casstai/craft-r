@@ -17,3 +17,7 @@ craft_report.pdf
 craft_report.md
 craft_report.tex
 craft_report.log
+
+# Developer-only notes — for the authors' reference, not for users.
+HOW_TO_TEST.md
+PUSH_TO_GITHUB.md
