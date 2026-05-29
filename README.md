@@ -1,5 +1,11 @@
 # craft
 
+<!-- badges: start -->
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![pkgdown](https://github.com/casstai/craft-r/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/casstai/craft-r/actions/workflows/pkgdown.yaml)
+<!-- badges: end -->
+
 > A CRAFT pipeline for evaluating LLM-generated data in political and
 > social science research.
 
