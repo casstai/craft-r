@@ -1,0 +1,10 @@
+pandoc: 3.8.3
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  craft-walkthrough: craft-walkthrough.html
+  getting-started: getting-started.html
+last_built: 2026-05-29T04:43Z
+urls:
+  reference: https://casstai.github.io/craft-r/reference
+  article: https://casstai.github.io/craft-r/articles
