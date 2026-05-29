@@ -2,11 +2,10 @@ url: https://casstai.github.io/craft-r/
 
 template:
   bootstrap: 5
-  bootswatch: litera
   bslib:
     primary: "#0072B2"
-    base_font: {google: "Source Sans Pro"}
-    heading_font: {google: "Playfair Display"}
+    base_font: {google: "Inter"}
+    heading_font: {google: "Inter"}
     code_font: {google: "JetBrains Mono"}
 
 navbar:
@@ -18,7 +17,7 @@ navbar:
       text: Get Started
       href: articles/getting-started.html
     articles:
-      text: Articles
+      text: Tutorials
       menu:
       - text: "Getting Started (5-min tutorial)"
         href: articles/getting-started.html
