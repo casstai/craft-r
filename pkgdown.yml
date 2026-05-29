@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   craft-walkthrough: craft-walkthrough.html
   getting-started: getting-started.html
-last_built: 2026-05-29T05:32Z
+last_built: 2026-05-29T05:40Z
 urls:
   reference: https://casstai.github.io/craft-r/reference
   article: https://casstai.github.io/craft-r/articles
