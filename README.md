@@ -78,10 +78,6 @@ report(role_task   = rt,
 See `vignettes/getting-started.Rmd` (5-minute tour) and
 `vignettes/craft-walkthrough.Rmd` (full climate-stance example).
 
-## How to run tests / R CMD check
-
-See `HOW_TO_TEST.md` in the package root.
-
 ## Citing
 
 > Ko, H., Tai, Y. C., & Webb Williams, N. (2026). Can We Trust
