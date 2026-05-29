@@ -23,6 +23,8 @@ navbar:
         href: articles/getting-started.html
       - text: "Full Walkthrough: Climate-Stance"
         href: articles/craft-walkthrough.html
+      - text: "Transparency Report for Journal Submission"
+        href: articles/transparency-report.html
 
 home:
   title: craft - A CRAFT pipeline for evaluating LLM-generated data
