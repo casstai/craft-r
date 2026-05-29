@@ -2,11 +2,11 @@ url: https://casstai.github.io/craft-r/
 
 template:
   bootstrap: 5
-  bootswatch: cosmo
+  bootswatch: litera
   bslib:
     primary: "#0072B2"
-    base_font: {google: "Inter"}
-    heading_font: {google: "Inter"}
+    base_font: {google: "Source Sans Pro"}
+    heading_font: {google: "Playfair Display"}
     code_font: {google: "JetBrains Mono"}
 
 navbar:
